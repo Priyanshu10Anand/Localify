@@ -2,6 +2,7 @@ package com.priyanshu.localplayer.data.repository
 
 import android.content.ContentUris
 import android.content.Context
+import android.net.Uri
 import android.provider.MediaStore
 import com.priyanshu.localplayer.data.model.Song
 
@@ -17,7 +18,8 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.ALBUM_ID
         )
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -35,10 +37,20 @@ class MusicRepository(private val context: Context) {
             val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
             val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
             val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
-                val uri = ContentUris.withAppendedId(collection, id)
+                val albumId = cursor.getLong(albumIdCol)
+
+                val songUri =
+                    ContentUris.withAppendedId(collection, id).toString()
+
+                val albumArtUri: Uri? =
+                    ContentUris.withAppendedId(
+                        Uri.parse("content://media/external/audio/albumart"),
+                        albumId
+                    )
 
                 songs.add(
                     Song(
@@ -47,7 +59,8 @@ class MusicRepository(private val context: Context) {
                         artist = cursor.getString(artistCol),
                         album = cursor.getString(albumCol),
                         duration = cursor.getLong(durationCol),
-                        uri = uri.toString()
+                        uri = songUri,
+                        albumArtUri = albumArtUri
                     )
                 )
             }
