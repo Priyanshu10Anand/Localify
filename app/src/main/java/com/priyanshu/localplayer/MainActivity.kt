@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .statusBarsPadding()
                         ) {
-                            LocalJamsHeader()
+                            LocalifyHeader()
                             FilterChipsSection()
 
                             LazyColumn(
@@ -192,36 +192,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LocalJamsHeader() {
+fun LocalifyHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            "Local Jams",
+            "Localify",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
-        Box {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = Color.Gray
-            ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
-            }
-            Surface(
-                modifier = Modifier
-                    .size(10.dp)
-                    .align(Alignment.TopEnd),
-                shape = CircleShape,
-                color = Color(0xFFF08E5B)
-            ) {}
-        }
     }
 }
 
@@ -489,7 +472,11 @@ fun FullPlayerDialog(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 IconButton(onClick = onDismiss) {
-                    Text("▼", color = Color.White, fontSize = 20.sp)
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
                 }
                 Text(
                     "Now Playing",
@@ -498,7 +485,11 @@ fun FullPlayerDialog(
                     fontWeight = FontWeight.Bold
                 )
                 IconButton(onClick = onQueue) {
-                    Text("≡", color = Color.White, fontSize = 24.sp)
+                    Icon(
+                        imageVector = Icons.Default.FormatListBulleted,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
                 }
             }
 
