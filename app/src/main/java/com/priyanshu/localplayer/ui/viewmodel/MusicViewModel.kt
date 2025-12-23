@@ -13,8 +13,7 @@ import com.priyanshu.localplayer.data.model.Song
 import com.priyanshu.localplayer.data.repository.MusicRepository
 import com.priyanshu.localplayer.player.MusicService
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
@@ -24,6 +23,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _librarySongs = MutableStateFlow<List<Song>>(emptyList())
     val librarySongs: StateFlow<List<Song>> = _librarySongs
+
+    // 🔍 Search Logic
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    val filteredSongs: StateFlow<List<Song>> = combine(_librarySongs, _searchQuery) { songs, query ->
+        if (query.isEmpty()) {
+            songs
+        } else {
+            songs.filter { 
+                it.title.contains(query, ignoreCase = true) || 
+                it.artist.contains(query, ignoreCase = true) 
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue
@@ -70,12 +84,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         _isPlaying.value = isPlaying
                     }
 
+                    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                        _isPlaying.value = playWhenReady
+                    }
+
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
+                            _isPlaying.value = false
+                        }
+                    }
+
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         updatePlaybackState(mediaItem)
                     }
 
                     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-                        // Sync index when queue is manipulated (e.g. shuffled/moved)
                         updatePlaybackState(mediaController?.currentMediaItem)
                     }
 
@@ -94,10 +117,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /**
-     * Safely updates the current song and index based on Media ID.
-     * This avoids glitches during transitions or queue reshuffling.
-     */
     private fun updatePlaybackState(mediaItem: MediaItem?) {
         val mediaId = mediaItem?.mediaId
         if (mediaId != null) {
@@ -109,7 +128,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
-        // Only clear if the player actually has nothing loaded
         if (mediaController?.currentMediaItem == null) {
             _currentSong.value = null
             _currentIndex.value = -1
@@ -129,11 +147,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadSongs() {
-        val songs = repository.getAllSongs()
-        _librarySongs.value = songs
-        if (_queue.value.isEmpty()) {
-            _queue.value = songs
+        viewModelScope.launch {
+            val songs = repository.getAllSongs()
+            _librarySongs.value = songs
+            if (_queue.value.isEmpty()) {
+                _queue.value = songs
+            }
         }
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
     }
 
     fun onSongTapped(song: Song) {
@@ -163,17 +187,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 .build()
         }
 
-        mediaController?.setMediaItems(mediaItems, index, 0)
-        mediaController?.prepare()
-        mediaController?.play()
+        _isPlaying.value = true
+
+        mediaController?.apply {
+            setMediaItems(mediaItems, index, 0)
+            prepare()
+            playWhenReady = true 
+            play()
+        }
 
         _currentIndex.value = index
         _currentSong.value = songs[index]
     }
 
     fun togglePlayPause() {
-        mediaController?.let {
-            if (it.isPlaying) it.pause() else it.play()
+        val controller = mediaController ?: return
+        val currentPlayState = _isPlaying.value
+        _isPlaying.value = !currentPlayState
+        if (currentPlayState) {
+            controller.pause()
+        } else {
+            controller.play()
         }
     }
 
@@ -182,11 +216,44 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun next() {
-        mediaController?.seekToNext()
+        _isPlaying.value = true
+        mediaController?.apply {
+            playWhenReady = true 
+            seekToNext()
+        }
     }
 
     fun previous() {
-        mediaController?.seekToPrevious()
+        _isPlaying.value = true
+        mediaController?.apply {
+            playWhenReady = true 
+            seekToPrevious()
+        }
+    }
+
+    fun shuffleAndPlay() {
+        val controller = mediaController ?: return
+        val library = _librarySongs.value
+        if (library.isEmpty()) return
+
+        val shuffledList = library.shuffled()
+        _queue.value = shuffledList
+        _isShuffleEnabled.value = true
+        _isPlaying.value = true
+        
+        val mediaItems = shuffledList.map { song ->
+            MediaItem.Builder().setUri(song.uri).setMediaId(song.uri).build()
+        }
+        
+        controller.apply {
+            setMediaItems(mediaItems)
+            prepare()
+            playWhenReady = true 
+            play()
+        }
+        
+        _currentIndex.value = 0
+        _currentSong.value = shuffledList[0]
     }
 
     fun toggleShuffle() {
@@ -212,10 +279,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         val otherMediaItems = otherSongs.map { song ->
-            MediaItem.Builder()
-                .setUri(song.uri)
-                .setMediaId(song.uri)
-                .build()
+            MediaItem.Builder().setUri(song.uri).setMediaId(song.uri).build()
         }
         if (otherMediaItems.isNotEmpty()) {
             controller.addMediaItems(1, otherMediaItems)

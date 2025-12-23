@@ -4,8 +4,10 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -43,7 +45,6 @@ fun NowPlayingPolished(
     onRepeat: () -> Unit,
     onQueue: () -> Unit
 ) {
-    // Local state for smooth seeking
     var sliderPosition by remember { mutableStateOf<Float?>(null) }
     val displayPosition = sliderPosition?.toLong() ?: position
 
@@ -51,7 +52,8 @@ fun NowPlayingPolished(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0F0F0F))
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            .verticalScroll(rememberScrollState()), // ✅ Prevent clipping on smaller screens
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(16.dp))
@@ -62,12 +64,12 @@ fun NowPlayingPolished(
             contentDescription = null,
             modifier = Modifier
                 .aspectRatio(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp)),
+                .fillMaxWidth(0.85f) // ✅ Slightly smaller to save vertical space
+                .clip(RoundedCornerShape(24.dp)),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // ℹ️ SONG INFO
         Row(
@@ -78,7 +80,7 @@ fun NowPlayingPolished(
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 22.sp, // ✅ Slightly smaller
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -86,29 +88,22 @@ fun NowPlayingPolished(
                 Text(
                     text = artist,
                     color = Color.LightGray,
-                    fontSize = 18.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = album,
-                    color = Color.Gray,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            IconButton(onClick = { /* Options */ }) {
+            IconButton(onClick = { }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // ⏱️ PROGRESS BAR
         Slider(
@@ -131,19 +126,11 @@ fun NowPlayingPolished(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = formatTime(displayPosition),
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
-            Text(
-                text = formatTime(duration),
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
+            Text(text = formatTime(displayPosition), color = Color.Gray, fontSize = 12.sp)
+            Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // 🎮 CONTROLS
         Row(
@@ -153,10 +140,10 @@ fun NowPlayingPolished(
         ) {
             IconButton(onClick = onRepeat) {
                 Icon(
-                    imageVector = Icons.Default.Repeat,
+                    imageVector = Icons.Default.Refresh,
                     contentDescription = null,
                     tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF5E67A2) else Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -165,14 +152,13 @@ fun NowPlayingPolished(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
 
-            // Central Play/Pause
             Surface(
                 modifier = Modifier
-                    .size(85.dp)
+                    .size(75.dp) // ✅ Reduced size
                     .clickable { onPlayPause() },
                 shape = CircleShape,
                 color = Color(0xFF5E67A2)
@@ -182,7 +168,7 @@ fun NowPlayingPolished(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
@@ -192,7 +178,7 @@ fun NowPlayingPolished(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
 
@@ -201,24 +187,24 @@ fun NowPlayingPolished(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = null,
                     tint = if (isShuffleEnabled) Color(0xFF5E67A2) else Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp)) // ✅ Tight spacing
 
         // 📜 QUEUE HANDLE
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onQueue() }
-                .padding(bottom = 20.dp),
+                .padding(vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .width(45.dp)
+                    .width(40.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(Color.Gray.copy(alpha = 0.5f))
@@ -227,9 +213,11 @@ fun NowPlayingPolished(
             Text(
                 text = "Queue",
                 color = Color.White,
-                fontSize = 16.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
         }
+        
+        Spacer(modifier = Modifier.height(40.dp)) // ✅ Final padding at bottom
     }
 }

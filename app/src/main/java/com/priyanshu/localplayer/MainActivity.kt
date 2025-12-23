@@ -10,22 +10,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,7 +74,10 @@ class MainActivity : ComponentActivity() {
                     var showNowPlaying by remember { mutableStateOf(false) }
                     var showQueue by remember { mutableStateOf(false) }
 
-                    val librarySongs by viewModel.librarySongs.collectAsState()
+                    var isSearchActive by remember { mutableStateOf(false) }
+                    val searchQuery by viewModel.searchQuery.collectAsState()
+
+                    val filteredSongs by viewModel.filteredSongs.collectAsState()
                     val queue by viewModel.queue.collectAsState()
                     val currentSong by viewModel.currentSong.collectAsState()
                     val currentIndex by viewModel.currentIndex.collectAsState()
@@ -78,20 +88,23 @@ class MainActivity : ComponentActivity() {
                     val repeatMode by viewModel.repeatMode.collectAsState()
 
                     Box(modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .statusBarsPadding()
-                        ) {
-                            LocalifyHeader()
-                            MusicTabs()
-
-                            LazyColumn(
+                        
+                        // 🖼️ Thumbnail Grid - pused down by safe column to avoid bleeding
+                        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(3),
                                 modifier = Modifier.weight(1f),
-                                contentPadding = PaddingValues(bottom = 100.dp)
+                                contentPadding = PaddingValues(
+                                    start = 16.dp, 
+                                    end = 16.dp, 
+                                    top = 80.dp, 
+                                    bottom = 180.dp 
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                itemsIndexed(librarySongs) { _, song ->
-                                    SimpleSongItem(
+                                items(filteredSongs) { song ->
+                                    ThumbnailSongItem(
                                         song = song,
                                         isSelected = currentSong?.uri == song.uri,
                                         onClick = { viewModel.onSongTapped(song) }
@@ -100,22 +113,137 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // 🧊 FLOATING TOP BUTTONS & HEADER GRADIENT
                         Box(
                             modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 24.dp, bottom = 110.dp)
+                                .fillMaxWidth()
+                                .statusBarsPadding()
                         ) {
-                            FloatingActionButton(
-                                onClick = { viewModel.toggleShuffle() },
-                                containerColor = Color(0xFF5E67A2),
-                                contentColor = Color.White,
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.size(56.dp)
+                            // ✅ Top Black Gradient (same smooth implementation as bottom)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Black,
+                                                Color.Black.copy(alpha = 0.8f),
+                                                Color.Black.copy(alpha = 0.5f),
+                                                Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Shuffle, contentDescription = "Shuffle")
+                                // Left: Localify "Button"
+                                AnimatedVisibility(
+                                    visible = !isSearchActive,
+                                    enter = fadeIn(),
+                                    exit = fadeOut()
+                                ) {
+                                    GlassButton(text = "Localify")
+                                }
+
+                                // Right: Search Area
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                                    if (isSearchActive) {
+                                        GlassSearchField(
+                                            value = searchQuery,
+                                            onValueChange = { viewModel.onSearchQueryChanged(it) },
+                                            onClose = { 
+                                                isSearchActive = false
+                                                viewModel.onSearchQueryChanged("")
+                                            }
+                                        )
+                                    } else {
+                                        GlassIconButton(
+                                            icon = Icons.Default.Search,
+                                            onClick = { isSearchActive = true }
+                                        )
+                                    }
+                                }
                             }
                         }
 
+                        // ⬛ BOTTOM GRADIENT OVERLAY
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Black.copy(alpha = 0.8f),
+                                            Color.Black
+                                        )
+                                    )
+                                )
+                        )
+
+                        // 🔀 Floating Shuffle Button
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 100.dp)
+                                .wrapContentSize()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .blur(25.dp)
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            )
+
+                            Surface(
+                                onClick = { viewModel.shuffleAndPlay() },
+                                color = Color.Transparent, 
+                                shape = RoundedCornerShape(24.dp),
+                                border = BorderStroke(1.2.dp, Color.White.copy(alpha = 0.4f)), 
+                                modifier = Modifier.wrapContentSize()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.White.copy(alpha = 0.2f),
+                                                    Color.Transparent
+                                                )
+                                            )
+                                        )
+                                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shuffle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        "SHUFFLE PLAY", 
+                                        color = Color.White,
+                                        fontWeight = FontWeight.ExtraBold, 
+                                        letterSpacing = 1.2.sp,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        // 🎶 Floating Mini Player
                         AnimatedVisibility(
                             visible = currentSong != null,
                             enter = slideInVertically(initialOffsetY = { it }),
@@ -125,14 +253,29 @@ class MainActivity : ComponentActivity() {
                                 .navigationBarsPadding()
                         ) {
                             currentSong?.let { song ->
-                                SimpleBottomPlayer(
-                                    song = song,
-                                    isPlaying = isPlaying,
-                                    progress = if (duration > 0) position.toFloat() / duration.toFloat() else 0f,
-                                    onPlayPause = { viewModel.togglePlayPause() },
-                                    onNext = { viewModel.next() },
-                                    onClick = { showNowPlaying = true }
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 8.dp, vertical = 8.dp)
+                                        .fillMaxWidth()
+                                        .height(64.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .blur(25.dp)
+                                            .background(Color.White.copy(alpha = 0.25f))
+                                    )
+
+                                    SimpleBottomPlayer(
+                                        song = song,
+                                        isPlaying = isPlaying,
+                                        progress = if (duration > 0) position.toFloat() / duration.toFloat() else 0f,
+                                        onPlayPause = { viewModel.togglePlayPause() },
+                                        onNext = { viewModel.next() },
+                                        onClick = { showNowPlaying = true }
+                                    )
+                                }
                             }
                         }
                     }
@@ -182,92 +325,138 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun LocalifyHeader() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            "Localify",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
+fun GlassButton(text: String, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.height(50.dp).wrapContentWidth()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(25.dp)) 
+                .blur(20.dp)
+                .background(Color.White.copy(alpha = 0.15f))
         )
-        Row {
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Search, contentDescription = null, tint = Color.White)
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null, tint = Color.White)
-            }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White)
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(25.dp),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+            modifier = Modifier.fillMaxHeight().wrapContentWidth()
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = text,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    fontSize = 18.sp
+                )
             }
         }
     }
 }
 
 @Composable
-fun MusicTabs() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Songs", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Box(modifier = Modifier.width(20.dp).height(2.dp).background(Color(0xFF5E67A2)))
+fun GlassIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Box(modifier = Modifier.size(50.dp).clickable { onClick() }) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(CircleShape) 
+                .blur(20.dp)
+                .background(Color.White.copy(alpha = 0.15f))
+        )
+        Surface(
+            color = Color.Transparent,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
         }
-        Text("Albums", color = Color.Gray, fontSize = 16.sp)
-        Text("Artists", color = Color.Gray, fontSize = 16.sp)
-        Text("Genres", color = Color.Gray, fontSize = 16.sp)
-        Text("Playlists", color = Color.Gray, fontSize = 16.sp)
     }
 }
 
 @Composable
-fun SimpleSongItem(song: Song, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
+fun GlassSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    Box(modifier = Modifier.fillMaxWidth().height(50.dp)) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(25.dp))
+                .blur(20.dp)
+                .background(Color.White.copy(alpha = 0.2f))
+        )
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(25.dp),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
+                placeholder = null,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    cursorColor = Color(0xFF1DB954),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                singleLine = true,
+                modifier = Modifier.fillMaxSize().focusRequester(focusRequester),
+                trailingIcon = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun ThumbnailSongItem(song: Song, isSelected: Boolean, onClick: () -> Unit) {
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .width(110.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.Start
     ) {
         AsyncImage(
             model = song.albumArtUri ?: R.drawable.ic_music_placeholder,
             contentDescription = null,
             modifier = Modifier
-                .size(50.dp)
+                .aspectRatio(1f)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Crop
         )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                song.title,
-                color = if (isSelected) Color(0xFF5E67A2) else Color.White,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                song.artist,
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        IconButton(onClick = {}) {
-            Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.Gray)
-        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = song.title,
+            color = if (isSelected) Color(0xFF1DB954) else Color.White,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = song.artist,
+            color = Color.Gray,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -282,37 +471,49 @@ fun SimpleBottomPlayer(
 ) {
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(75.dp)
+            .fillMaxSize()
             .clickable { onClick() },
-        color = Color(0xFF121212)
+        color = Color.Transparent, 
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
     ) {
         Column {
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.Gray.copy(alpha = 0.2f))) {
-                Box(modifier = Modifier.fillMaxWidth(progress).fillMaxHeight().background(Color(0xFF5E67A2)))
-            }
-            
             Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
                     model = song.albumArtUri ?: R.drawable.ic_music_placeholder,
                     contentDescription = null,
-                    modifier = Modifier.size(45.dp).clip(RoundedCornerShape(4.dp)),
+                    modifier = Modifier
+                        .size(45.dp)
+                        .clip(RoundedCornerShape(4.dp)),
                     contentScale = ContentScale.Crop
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(song.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text(song.artist, color = Color.Gray, fontSize = 13.sp, maxLines = 1)
+                    Text(
+                        song.title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Text(
+                        song.artist,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
                 }
                 IconButton(onClick = onPlayPause) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
                 IconButton(onClick = onNext) {
@@ -320,10 +521,18 @@ fun SimpleBottomPlayer(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
             }
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+                color = Color.White,
+                trackColor = Color.Transparent
+            )
         }
     }
 }
@@ -362,7 +571,7 @@ fun FullPlayerDialog(
                     Text("All songs", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
                 IconButton(onClick = {}) {
-                    Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White)
+                    Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White)
                 }
             }
 
