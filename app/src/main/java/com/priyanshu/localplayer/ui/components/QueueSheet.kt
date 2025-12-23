@@ -1,7 +1,6 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package com.priyanshu.localplayer.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,9 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.priyanshu.localplayer.data.model.Song
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueSheet(
     songs: List<Song>,
@@ -30,23 +29,36 @@ fun QueueSheet(
         Text(
             text = "Queue",
             color = Color.White,
-            fontSize = 20.sp,
             modifier = Modifier.padding(16.dp)
         )
 
-        LazyColumn {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth()
+        ) {
             itemsIndexed(songs) { index, song ->
+
                 val isCurrent = index == currentIndex
 
-                Text(
-                    text = song.title,
-                    color = if (isCurrent) Color(0xFF1DB954) else Color.White,
-                    fontSize = 16.sp,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onSongSelected(index) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                )
+                        .background(
+                            if (isCurrent) Color(0xFF1E1E1E)
+                            else Color.Transparent
+                        )
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = song.title,
+                        color = if (isCurrent) Color(0xFFBB86FC) else Color.White
+                    )
+                    Text(
+                        text = song.artist,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
 

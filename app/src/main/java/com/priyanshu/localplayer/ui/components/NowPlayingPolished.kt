@@ -15,9 +15,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.priyanshu.localplayer.ui.utils.formatTime
+import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.priyanshu.localplayer.R
+import com.priyanshu.localplayer.ui.utils.formatTime
 
 @Composable
 fun NowPlayingPolished(
@@ -46,7 +47,7 @@ fun NowPlayingPolished(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-        // 🎵 ALBUM ART (tap → open queue)
+        // 🎵 ALBUM ART (tap → queue)
         AsyncImage(
             model = albumArtUri ?: R.drawable.ic_music_placeholder,
             contentDescription = null,
@@ -59,14 +60,14 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 🎶 SONG INFO
+        // 🎶 INFO
         Text(text = title, color = Color.White)
         Text(text = artist, color = Color.Gray)
         Text(text = album, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ⏱ SEEK BAR
+        // ⏱ SEEK
         Slider(
             value = position.toFloat(),
             onValueChange = { onSeek(it.toLong()) },
@@ -92,7 +93,7 @@ fun NowPlayingPolished(
 
             Text(
                 text = "🔀",
-                color = if (isShuffleEnabled) Color(0xFF1DB954) else Color.White,
+                color = if (isShuffleEnabled) Color(0xFFBB86FC) else Color.White,
                 modifier = Modifier.clickable { onShuffle() }
             )
 
@@ -123,26 +124,24 @@ fun NowPlayingPolished(
             )
 
             Text(
-                text = "🔁",
-                color = if (repeatMode != 0) Color(0xFF1DB954) else Color.White,
+                text = when (repeatMode) {
+                    Player.REPEAT_MODE_ONE -> "🔂"
+                    Player.REPEAT_MODE_ALL -> "🔁"
+                    else -> "➡"
+                },
+                color = if (repeatMode != Player.REPEAT_MODE_OFF)
+                    Color(0xFFBB86FC) else Color.White,
                 modifier = Modifier.clickable { onRepeat() }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 📜 QUEUE LABEL
+        // 📜 QUEUE
         Text(
             text = "Queue",
             color = Color.Gray,
             modifier = Modifier.clickable { onQueue() }
         )
     }
-}
-
-fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d:%02d".format(minutes, seconds)
 }

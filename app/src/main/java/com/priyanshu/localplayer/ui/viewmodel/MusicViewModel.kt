@@ -18,15 +18,17 @@ import kotlinx.coroutines.launch
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
-    val currentIndexState: Int get() = currentIndex
     private val app = application
     private val repository = MusicRepository(application)
 
-    private var songQueue: List<Song> = emptyList()
-    private var currentIndex = -1
+    private val _librarySongs = MutableStateFlow<List<Song>>(emptyList())
+    val librarySongs: StateFlow<List<Song>> = _librarySongs
 
-    private val _songs = MutableStateFlow<List<Song>>(emptyList())
-    val songs: StateFlow<List<Song>> = _songs
+    private val _queue = MutableStateFlow<List<Song>>(emptyList())
+    val queue: StateFlow<List<Song>> = _queue
+
+    private val _currentIndex = MutableStateFlow(-1)
+    val currentIndex: StateFlow<Int> = _currentIndex
 
     private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong
@@ -40,11 +42,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration
 
-    // 🔀 SHUFFLE
     private val _isShuffleEnabled = MutableStateFlow(false)
     val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled
 
-    // 🔁 REPEAT
     private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeatMode: StateFlow<Int> = _repeatMode
 
@@ -73,14 +73,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         mediaItem: MediaItem?,
                         reason: Int
                     ) {
-                        mediaItem?.mediaId?.toIntOrNull()?.let {
-                            currentIndex = it
-                            _currentSong.value = songQueue.getOrNull(it)
-                        }
+                        val index = mediaController?.currentMediaItemIndex ?: -1
+                        _currentIndex.value = index
+                        _currentSong.value = _queue.value.getOrNull(index)
                     }
 
                     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                        _isShuffleEnabled.value = shuffleModeEnabled
+                        // Managed manually for UI synchronization
                     }
 
                     override fun onRepeatModeChanged(repeatMode: Int) {
@@ -107,30 +106,47 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadSongs() {
-        songQueue = repository.getAllSongs()
-        _songs.value = songQueue
+        val songs = repository.getAllSongs()
+        _librarySongs.value = songs
+
+        if (_queue.value.isEmpty()) {
+            _queue.value = songs
+        }
     }
 
     fun onSongTapped(song: Song) {
-        currentIndex = songQueue.indexOf(song)
-        if (currentIndex == -1) return
-
-        playAtIndex(currentIndex)
-    }
-
-    private fun playAtIndex(index: Int) {
-        val mediaItems = songQueue.mapIndexed { i, song ->
-            MediaItem.Builder()
-                .setUri(song.uri)
-                .setMediaId(i.toString())
-                .build()
+        val songs = if (_isShuffleEnabled.value) {
+            val list = _librarySongs.value.toMutableList()
+            list.remove(song)
+            val shuffled = list.shuffled().toMutableList()
+            shuffled.add(0, song)
+            shuffled
+        } else {
+            _librarySongs.value
         }
 
-        _currentSong.value = songQueue[index]
+        _queue.value = songs
+        val index = songs.indexOf(song)
+        playFromQueue(index)
+    }
+
+    fun playFromQueue(index: Int) {
+        val songs = _queue.value
+        if (index !in songs.indices) return
+
+        val mediaItems = songs.map { song ->
+            MediaItem.Builder()
+                .setUri(song.uri)
+                .setMediaId(song.uri)
+                .build()
+        }
 
         mediaController?.setMediaItems(mediaItems, index, 0)
         mediaController?.prepare()
         mediaController?.play()
+
+        _currentIndex.value = index
+        _currentSong.value = songs[index]
     }
 
     fun togglePlayPause() {
@@ -151,22 +167,65 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.seekToPrevious()
     }
 
-    // 🔀 SHUFFLE TOGGLE
+    /**
+     * Seamlessly reshuffles the queue.
+     * Moves the current song to the start of the playlist and shuffles the rest,
+     * updating the player without any audio interruption.
+     */
     fun toggleShuffle() {
-        mediaController?.let {
-            it.shuffleModeEnabled = !it.shuffleModeEnabled
+        val controller = mediaController ?: return
+        
+        // 1. Identify the current song safely
+        val currentMediaItem = controller.currentMediaItem ?: return
+        val currentMediaId = currentMediaItem.mediaId
+        val currentSong = _librarySongs.value.find { it.uri == currentMediaId } ?: _currentSong.value ?: return
+        
+        // 2. Generate a new shuffled list starting with the current song
+        val otherSongs = _librarySongs.value.filter { it.uri != currentSong.uri }.shuffled()
+        val newQueue = listOf(currentSong) + otherSongs
+        
+        // Update local state for UI immediately
+        _queue.value = newQueue
+        _currentIndex.value = 0
+        _isShuffleEnabled.value = true
+
+        // 3. Seamlessly update the ExoPlayer queue
+        val currentInPlayerIndex = controller.currentMediaItemIndex
+        
+        // Move current item to index 0 (this is a seamless operation)
+        if (currentInPlayerIndex != 0) {
+            controller.moveMediaItem(currentInPlayerIndex, 0)
         }
+        
+        // Remove everything except the current song at index 0
+        if (controller.mediaItemCount > 1) {
+            controller.removeMediaItems(1, controller.mediaItemCount)
+        }
+        
+        // Add the rest of the shuffled items (this is also seamless)
+        val otherMediaItems = otherSongs.map { song ->
+            MediaItem.Builder()
+                .setUri(song.uri)
+                .setMediaId(song.uri)
+                .build()
+        }
+        if (otherMediaItems.isNotEmpty()) {
+            controller.addMediaItems(1, otherMediaItems)
+        }
+        
+        // Ensure ExoPlayer's internal shuffle is OFF since we are managing order manually
+        controller.shuffleModeEnabled = false 
     }
 
-    // 🔁 REPEAT TOGGLE
     fun toggleRepeatMode() {
-        mediaController?.let {
-            val nextMode = when (it.repeatMode) {
+        mediaController?.let { controller ->
+            val newMode = when (controller.repeatMode) {
                 Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
                 Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
                 else -> Player.REPEAT_MODE_OFF
             }
-            it.repeatMode = nextMode
+            controller.repeatMode = newMode
+            _repeatMode.value = newMode
         }
     }
 }

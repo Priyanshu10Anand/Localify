@@ -39,8 +39,14 @@ class MainActivity : ComponentActivity() {
 
             var showQueue by remember { mutableStateOf(false) }
 
-            val songs by viewModel.songs.collectAsState()
+            // 📚 Library
+            val librarySongs by viewModel.librarySongs.collectAsState()
+
+            // 🎧 Playback state
+            val queue by viewModel.queue.collectAsState()
             val currentSong by viewModel.currentSong.collectAsState()
+            val currentIndex by viewModel.currentIndex.collectAsState()
+
             val isPlaying by viewModel.isPlaying.collectAsState()
             val position by viewModel.position.collectAsState()
             val duration by viewModel.duration.collectAsState()
@@ -49,11 +55,11 @@ class MainActivity : ComponentActivity() {
 
             Column {
 
-                // 🎵 SONG LIST
+                // 🎵 SONG LIBRARY
                 LazyColumn(
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(songs) { song ->
+                    items(librarySongs) { song ->
                         Text(
                             text = song.title,
                             modifier = Modifier
@@ -76,24 +82,24 @@ class MainActivity : ComponentActivity() {
                         isPlaying = isPlaying,
                         isShuffleEnabled = isShuffleEnabled,
                         repeatMode = repeatMode,
-                        onSeek = viewModel::seekTo,
-                        onPlayPause = viewModel::togglePlayPause,
-                        onNext = viewModel::next,
-                        onPrev = viewModel::previous,
-                        onShuffle = viewModel::toggleShuffle,
-                        onRepeat = viewModel::toggleRepeatMode,
+                        onSeek = { viewModel.seekTo(it) },
+                        onPlayPause = { viewModel.togglePlayPause() },
+                        onNext = { viewModel.next() },
+                        onPrev = { viewModel.previous() },
+                        onShuffle = { viewModel.toggleShuffle() },
+                        onRepeat = { viewModel.toggleRepeatMode() },
                         onQueue = { showQueue = true }
                     )
                 }
             }
 
-            // 📜 QUEUE SHEET
-            if (showQueue) {
+            // 📜 QUEUE SHEET (PLAYBACK ORDER)
+            if (showQueue && queue.isNotEmpty()) {
                 QueueSheet(
-                    songs = songs,
-                    currentIndex = songs.indexOf(currentSong),
+                    songs = queue,
+                    currentIndex = currentIndex,
                     onSongSelected = { index ->
-                        viewModel.onSongTapped(songs[index])
+                        viewModel.playFromQueue(index)
                         showQueue = false
                     },
                     onDismiss = { showQueue = false }
