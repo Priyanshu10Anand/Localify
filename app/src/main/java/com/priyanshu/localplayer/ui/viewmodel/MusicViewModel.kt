@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.priyanshu.localplayer.data.model.Song
@@ -69,17 +70,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         _isPlaying.value = isPlaying
                     }
 
-                    override fun onMediaItemTransition(
-                        mediaItem: MediaItem?,
-                        reason: Int
-                    ) {
-                        val index = mediaController?.currentMediaItemIndex ?: -1
-                        _currentIndex.value = index
-                        _currentSong.value = _queue.value.getOrNull(index)
+                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        updatePlaybackState(mediaItem)
+                    }
+
+                    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                        // Sync index when queue is manipulated (e.g. shuffled/moved)
+                        updatePlaybackState(mediaController?.currentMediaItem)
                     }
 
                     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                        // Managed manually for UI synchronization
+                        _isShuffleEnabled.value = shuffleModeEnabled
                     }
 
                     override fun onRepeatModeChanged(repeatMode: Int) {
@@ -91,6 +92,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             },
             Runnable::run
         )
+    }
+
+    /**
+     * Safely updates the current song and index based on Media ID.
+     * This avoids glitches during transitions or queue reshuffling.
+     */
+    private fun updatePlaybackState(mediaItem: MediaItem?) {
+        val mediaId = mediaItem?.mediaId
+        if (mediaId != null) {
+            val song = _librarySongs.value.find { it.uri == mediaId }
+            if (song != null) {
+                _currentSong.value = song
+                _currentIndex.value = _queue.value.indexOf(song)
+                return
+            }
+        }
+        
+        // Only clear if the player actually has nothing loaded
+        if (mediaController?.currentMediaItem == null) {
+            _currentSong.value = null
+            _currentIndex.value = -1
+        }
     }
 
     private fun startPositionUpdates() {
@@ -108,7 +131,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun loadSongs() {
         val songs = repository.getAllSongs()
         _librarySongs.value = songs
-
         if (_queue.value.isEmpty()) {
             _queue.value = songs
         }
@@ -167,42 +189,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.seekToPrevious()
     }
 
-    /**
-     * Seamlessly reshuffles the queue.
-     * Moves the current song to the start of the playlist and shuffles the rest,
-     * updating the player without any audio interruption.
-     */
     fun toggleShuffle() {
         val controller = mediaController ?: return
-        
-        // 1. Identify the current song safely
         val currentMediaItem = controller.currentMediaItem ?: return
         val currentMediaId = currentMediaItem.mediaId
         val currentSong = _librarySongs.value.find { it.uri == currentMediaId } ?: _currentSong.value ?: return
         
-        // 2. Generate a new shuffled list starting with the current song
         val otherSongs = _librarySongs.value.filter { it.uri != currentSong.uri }.shuffled()
         val newQueue = listOf(currentSong) + otherSongs
         
-        // Update local state for UI immediately
         _queue.value = newQueue
         _currentIndex.value = 0
         _isShuffleEnabled.value = true
 
-        // 3. Seamlessly update the ExoPlayer queue
         val currentInPlayerIndex = controller.currentMediaItemIndex
-        
-        // Move current item to index 0 (this is a seamless operation)
         if (currentInPlayerIndex != 0) {
             controller.moveMediaItem(currentInPlayerIndex, 0)
         }
         
-        // Remove everything except the current song at index 0
         if (controller.mediaItemCount > 1) {
             controller.removeMediaItems(1, controller.mediaItemCount)
         }
         
-        // Add the rest of the shuffled items (this is also seamless)
         val otherMediaItems = otherSongs.map { song ->
             MediaItem.Builder()
                 .setUri(song.uri)
@@ -213,7 +221,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             controller.addMediaItems(1, otherMediaItems)
         }
         
-        // Ensure ExoPlayer's internal shuffle is OFF since we are managing order manually
         controller.shuffleModeEnabled = false 
     }
 

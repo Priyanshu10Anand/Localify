@@ -6,15 +6,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.priyanshu.localplayer.R
@@ -39,109 +43,193 @@ fun NowPlayingPolished(
     onRepeat: () -> Unit,
     onQueue: () -> Unit
 ) {
+    // Local state for smooth seeking
+    var sliderPosition by remember { mutableStateOf<Float?>(null) }
+    val displayPosition = sliderPosition?.toLong() ?: position
+
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-            .padding(20.dp),
+            .fillMaxSize()
+            .background(Color(0xFF0F0F0F))
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // 🎵 ALBUM ART (tap → queue)
+        // 🖼️ ALBUM ART
         AsyncImage(
             model = albumArtUri ?: R.drawable.ic_music_placeholder,
             contentDescription = null,
             modifier = Modifier
-                .size(320.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { onQueue() },
+                .aspectRatio(1f)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(32.dp)),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
-        // 🎶 INFO
-        Text(text = title, color = Color.White)
-        Text(text = artist, color = Color.Gray)
-        Text(text = album, color = Color.Gray)
+        // ℹ️ SONG INFO
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = artist,
+                    color = Color.LightGray,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = album,
+                    color = Color.Gray,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = { /* Options */ }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // ⏱ SEEK
+        // ⏱️ PROGRESS BAR
         Slider(
-            value = position.toFloat(),
-            onValueChange = { onSeek(it.toLong()) },
-            valueRange = 0f..(if (duration > 0) duration.toFloat() else 1f)
+            value = displayPosition.toFloat(),
+            onValueChange = { sliderPosition = it },
+            onValueChangeFinished = {
+                sliderPosition?.let { onSeek(it.toLong()) }
+                sliderPosition = null
+            },
+            valueRange = 0f..(if (duration > 0) duration.toFloat() else 1f),
+            colors = SliderDefaults.colors(
+                thumbColor = Color(0xFF5E67A2),
+                activeTrackColor = Color(0xFF5E67A2),
+                inactiveTrackColor = Color.DarkGray
+            ),
+            modifier = Modifier.fillMaxWidth()
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(formatTime(position), color = Color.White)
-            Text(formatTime(duration), color = Color.White)
+            Text(
+                text = formatTime(displayPosition),
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
+            Text(
+                text = formatTime(duration),
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        // 🔀 ⏮ ▶ ⏭ 🔁 CONTROLS
+        // 🎮 CONTROLS
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Text(
-                text = "🔀",
-                color = if (isShuffleEnabled) Color(0xFFBB86FC) else Color.White,
-                modifier = Modifier.clickable { onShuffle() }
-            )
-
-            Text(
-                text = "⏮",
-                color = Color.White,
-                modifier = Modifier.clickable { onPrev() }
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1DB954))
-                    .clickable { onPlayPause() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isPlaying) "⏸" else "▶",
-                    color = Color.Black
+            IconButton(onClick = onRepeat) {
+                Icon(
+                    imageVector = Icons.Default.Repeat,
+                    contentDescription = null,
+                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF5E67A2) else Color.White,
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Text(
-                text = "⏭",
-                color = Color.White,
-                modifier = Modifier.clickable { onNext() }
-            )
+            IconButton(onClick = onPrev) {
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
 
-            Text(
-                text = when (repeatMode) {
-                    Player.REPEAT_MODE_ONE -> "🔂"
-                    Player.REPEAT_MODE_ALL -> "🔁"
-                    else -> "➡"
-                },
-                color = if (repeatMode != Player.REPEAT_MODE_OFF)
-                    Color(0xFFBB86FC) else Color.White,
-                modifier = Modifier.clickable { onRepeat() }
-            )
+            // Central Play/Pause
+            Surface(
+                modifier = Modifier
+                    .size(85.dp)
+                    .clickable { onPlayPause() },
+                shape = CircleShape,
+                color = Color(0xFF5E67A2)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+
+            IconButton(onClick = onNext) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+
+            IconButton(onClick = onShuffle) {
+                Icon(
+                    imageVector = Icons.Default.Shuffle,
+                    contentDescription = null,
+                    tint = if (isShuffleEnabled) Color(0xFF5E67A2) else Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
-        // 📜 QUEUE
-        Text(
-            text = "Queue",
-            color = Color.Gray,
-            modifier = Modifier.clickable { onQueue() }
-        )
+        // 📜 QUEUE HANDLE
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onQueue() }
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(45.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.Gray.copy(alpha = 0.5f))
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Queue",
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
