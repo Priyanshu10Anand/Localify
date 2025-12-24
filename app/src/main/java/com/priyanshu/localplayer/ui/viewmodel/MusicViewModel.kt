@@ -272,11 +272,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun next() {
-        mediaController?.seekToNext()
+        mediaController?.let {
+            it.seekToNext()
+            it.play()
+        }
     }
 
     fun previous() {
-        mediaController?.seekToPrevious()
+        mediaController?.let {
+            it.seekToPrevious()
+            it.play()
+        }
     }
 
     fun shuffleAndPlay() {

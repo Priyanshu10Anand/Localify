@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,11 +19,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
@@ -100,7 +104,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ℹ️ SONG INFO
+        // ℹ️ SONG INFO - REMOVED MOREVERT ICON
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -120,14 +124,6 @@ fun NowPlayingPolished(
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
-                )
-            }
-            IconButton(onClick = { }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
                 )
             }
         }
@@ -170,30 +166,26 @@ fun NowPlayingPolished(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onRepeat) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = null,
-                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF1DB954) else Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            FrostedGlassIconButton(
+                icon = Icons.Default.Refresh,
+                onClick = onRepeat,
+                size = 48.dp,
+                iconSize = 24.dp,
+                tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF1DB954) else Color.White
+            )
 
-            IconButton(onClick = onPrev) {
-                Icon(
-                    imageVector = Icons.Default.SkipPrevious,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
+            FrostedGlassIconButton(
+                icon = Icons.Default.SkipPrevious,
+                onClick = onPrev,
+                size = 56.dp,
+                iconSize = 32.dp
+            )
 
-            // Fixed the ugly square outline by using Surface's onClick and clipping
             Surface(
-                onClick = onPlayPause, // ✅ Use Surface's onClick for shape-aware ripple
+                onClick = onPlayPause,
                 modifier = Modifier
                     .size(75.dp)
-                    .clip(RoundedCornerShape(cornerRadius)), // ✅ Clip the modifier to match shape
+                    .clip(RoundedCornerShape(cornerRadius)),
                 shape = RoundedCornerShape(cornerRadius), 
                 color = Color.White
             ) {
@@ -207,51 +199,56 @@ fun NowPlayingPolished(
                 }
             }
 
-            IconButton(onClick = onNext) {
-                Icon(
-                    imageVector = Icons.Default.SkipNext,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
+            FrostedGlassIconButton(
+                icon = Icons.Default.SkipNext,
+                onClick = onNext,
+                size = 56.dp,
+                iconSize = 32.dp
+            )
 
-            IconButton(onClick = onShuffle) {
-                Icon(
-                    imageVector = Icons.Default.Shuffle,
-                    contentDescription = null,
-                    tint = if (isShuffleEnabled) Color(0xFF1DB954) else Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            FrostedGlassIconButton(
+                icon = Icons.Default.Shuffle,
+                onClick = onShuffle,
+                size = 48.dp,
+                iconSize = 24.dp,
+                tint = if (isShuffleEnabled) Color(0xFF1DB954) else Color.White
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        
+        // Removed Queue handle from here as it's handled by BottomSheetScaffold peek
+    }
+}
 
-        // 📜 QUEUE HANDLE
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onQueue() }
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+@Composable
+fun FrostedGlassIconButton(
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 48.dp,
+    iconSize: Dp = 24.dp,
+    tint: Color = Color.White
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape),
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.1f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.Gray.copy(alpha = 0.5f))
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Queue",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(iconSize)
             )
         }
-        
-        Spacer(modifier = Modifier.height(40.dp))
     }
 }
