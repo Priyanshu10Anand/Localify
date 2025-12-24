@@ -7,14 +7,12 @@ plugins {
 
 android {
     namespace = "com.priyanshu.localplayer"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.priyanshu.localplayer"
         minSdk = 29
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -78,4 +76,7 @@ dependencies {
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // 🎨 Palette API for Dynamic Theming
+    implementation("androidx.palette:palette-ktx:1.0.0")
 }

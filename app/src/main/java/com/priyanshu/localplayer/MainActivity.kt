@@ -1,7 +1,10 @@
 package com.priyanshu.localplayer
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,16 +39,23 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.priyanshu.localplayer.data.model.Song
 import com.priyanshu.localplayer.ui.components.NowPlayingPolished
 import com.priyanshu.localplayer.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -96,6 +106,24 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // 🎨 Dynamic Theming Logic
+                    val context = LocalContext.current
+                    var dominantColor by remember { mutableStateOf(Color(0xFF1DB954)) } // Default green
+
+                    LaunchedEffect(currentSong) {
+                        currentSong?.albumArtUri?.let { uri ->
+                            val bitmap = fetchBitmap(context, uri.toString())
+                            if (bitmap != null) {
+                                withContext(Dispatchers.Default) {
+                                    val palette = Palette.from(bitmap).generate()
+                                    // Try to get a vibrant color, fallback to dominant
+                                    val color = palette.getVibrantColor(palette.getDominantColor(0xFF1DB954.toInt()))
+                                    dominantColor = Color(color)
+                                }
+                            }
+                        }
+                    }
+
                     BackHandler(enabled = showNowPlaying) {
                         showNowPlaying = false
                     }
@@ -119,6 +147,7 @@ class MainActivity : ComponentActivity() {
                                     ThumbnailSongItem(
                                         song = song,
                                         isSelected = currentSong?.uri == song.uri,
+                                        accentColor = dominantColor,
                                         onClick = { viewModel.onSongTapped(song) }
                                     )
                                 }
@@ -162,6 +191,7 @@ class MainActivity : ComponentActivity() {
                                         GlassSearchField(
                                             value = searchQuery,
                                             onValueChange = { viewModel.onSearchQueryChanged(it) },
+                                            accentColor = dominantColor,
                                             onClose = { 
                                                 isSearchActive = false
                                                 viewModel.onSearchQueryChanged("")
@@ -295,6 +325,7 @@ class MainActivity : ComponentActivity() {
                                 repeatMode = repeatMode,
                                 queue = queue,
                                 currentIndex = currentIndex,
+                                accentColor = dominantColor,
                                 viewModel = viewModel,
                                 onDismiss = { showNowPlaying = false }
                             )
@@ -317,6 +348,17 @@ class MainActivity : ComponentActivity() {
             permissionLauncher.launch(permission)
         }
     }
+
+    private suspend fun fetchBitmap(context: Context, url: String): Bitmap? {
+        val loader = ImageLoader(context)
+        val request = ImageRequest.Builder(context)
+            .data(url)
+            .allowHardware(false) // Required for Palette
+            .build()
+
+        val result = (loader.execute(request) as? SuccessResult)?.drawable
+        return (result as? BitmapDrawable)?.bitmap
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -330,6 +372,7 @@ fun InteractivePlayerDialog(
     repeatMode: Int,
     queue: List<Song>,
     currentIndex: Int,
+    accentColor: Color,
     viewModel: MusicViewModel,
     onDismiss: () -> Unit
 ) {
@@ -342,7 +385,7 @@ fun InteractivePlayerDialog(
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetPeekHeight = 45.dp, // ✅ Deeply tucked to hide song glimpses
+        sheetPeekHeight = 45.dp, // Corrected peek height to avoid clipping buttons
         sheetDragHandle = null,
         sheetContainerColor = Color.Transparent,
         containerColor = Color.Transparent,
@@ -360,7 +403,7 @@ fun InteractivePlayerDialog(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 8.dp), // ✅ Tighter padding
+                            .padding(top = 12.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
@@ -395,7 +438,7 @@ fun InteractivePlayerDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         queueSong.title,
-                                        color = if (isCurrent) Color(0xFF1DB954) else Color.White,
+                                        color = if (isCurrent) accentColor else Color.White,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
@@ -450,6 +493,7 @@ fun InteractivePlayerDialog(
                 }
 
                 NowPlayingPolished(
+                    songId = song.id,
                     title = song.title,
                     artist = song.artist,
                     album = song.album,
@@ -459,6 +503,7 @@ fun InteractivePlayerDialog(
                     isPlaying = isPlaying,
                     isShuffleEnabled = isShuffleEnabled,
                     repeatMode = repeatMode,
+                    accentColor = accentColor,
                     onSeek = { viewModel.seekTo(it) },
                     onPlayPause = { viewModel.togglePlayPause() },
                     onNext = { viewModel.next() },
@@ -528,6 +573,7 @@ fun GlassIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onCli
 fun GlassSearchField(
     value: String,
     onValueChange: (String) -> Unit,
+    accentColor: Color,
     onClose: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -556,7 +602,7 @@ fun GlassSearchField(
                     unfocusedContainerColor = Color.Transparent,
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    cursorColor = Color(0xFF1DB954),
+                    cursorColor = accentColor,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
@@ -573,7 +619,7 @@ fun GlassSearchField(
 }
 
 @Composable
-fun ThumbnailSongItem(song: Song, isSelected: Boolean, onClick: () -> Unit) {
+fun ThumbnailSongItem(song: Song, isSelected: Boolean, accentColor: Color, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(110.dp)
@@ -592,7 +638,7 @@ fun ThumbnailSongItem(song: Song, isSelected: Boolean, onClick: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = song.title,
-            color = if (isSelected) Color(0xFF1DB954) else Color.White,
+            color = if (isSelected) accentColor else Color.White,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
