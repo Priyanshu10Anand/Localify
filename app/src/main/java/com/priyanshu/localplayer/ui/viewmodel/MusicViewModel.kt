@@ -4,7 +4,9 @@ import android.app.Application
 import android.content.ComponentName
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
@@ -12,6 +14,7 @@ import androidx.media3.session.SessionToken
 import com.priyanshu.localplayer.data.model.Song
 import com.priyanshu.localplayer.data.repository.MusicRepository
 import com.priyanshu.localplayer.player.MusicService
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -24,20 +27,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _librarySongs = MutableStateFlow<List<Song>>(emptyList())
     val librarySongs: StateFlow<List<Song>> = _librarySongs
 
-    // 🔍 Search Logic
+    // 🔍 Search Logic with Debounce for smoothness
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
-    val filteredSongs: StateFlow<List<Song>> = combine(_librarySongs, _searchQuery) { songs, query ->
-        if (query.isEmpty()) {
-            songs
-        } else {
-            songs.filter { 
-                it.title.contains(query, ignoreCase = true) || 
-                it.artist.contains(query, ignoreCase = true) 
+    @OptIn(FlowPreview::class)
+    val filteredSongs: StateFlow<List<Song>> = _searchQuery
+        .debounce(200)
+        .combine(_librarySongs) { query, songs ->
+            if (query.isEmpty()) {
+                songs
+            } else {
+                songs.filter { 
+                    it.title.contains(query, ignoreCase = true) || 
+                    it.artist.contains(query, ignoreCase = true) 
+                }
             }
-        }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue
@@ -66,6 +72,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private var mediaController: MediaController? = null
 
     init {
+        // Collect songs from DB flow - This is the "Instant Loading" part
+        viewModelScope.launch {
+            repository.getSongsFlow().collect { songs ->
+                _librarySongs.value = songs
+                if (_queue.value.isEmpty()) {
+                    _queue.value = songs
+                    setMediaControllerItems(songs)
+                }
+            }
+        }
+
         val sessionToken = SessionToken(
             app,
             ComponentName(app, MusicService::class.java)
@@ -111,6 +128,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 })
 
+                // Load initial songs if library is already fetched from DB
+                if (_librarySongs.value.isNotEmpty()) {
+                    setMediaControllerItems(_librarySongs.value)
+                }
+
                 startPositionUpdates()
             },
             Runnable::run
@@ -124,6 +146,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (song != null) {
                 _currentSong.value = song
                 _currentIndex.value = _queue.value.indexOf(song)
+                _duration.value = song.duration
+                _position.value = 0L 
                 return
             }
         }
@@ -131,6 +155,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (mediaController?.currentMediaItem == null) {
             _currentSong.value = null
             _currentIndex.value = -1
+            _duration.value = 0L
         }
     }
 
@@ -138,8 +163,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             while (true) {
                 mediaController?.let {
-                    _position.value = it.currentPosition
-                    _duration.value = if (it.duration > 0) it.duration else 0L
+                    if (it.isPlaying) {
+                        _position.value = it.currentPosition
+                        val dur = it.duration
+                        if (dur > 0 && dur != C.TIME_UNSET) {
+                            _duration.value = dur
+                        }
+                    }
                 }
                 delay(500)
             }
@@ -148,12 +178,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSongs() {
         viewModelScope.launch {
-            val songs = repository.getAllSongs()
-            _librarySongs.value = songs
-            if (_queue.value.isEmpty()) {
-                _queue.value = songs
-            }
+            // This now triggers the background sync
+            repository.refreshLibrary()
         }
+    }
+
+    private fun setMediaControllerItems(songs: List<Song>) {
+        val controller = mediaController ?: return
+        val mediaItems = songs.map { song ->
+            val metadata = MediaMetadata.Builder()
+                .setTitle(song.title)
+                .setArtist(song.artist)
+                .setAlbumTitle(song.album)
+                .setArtworkUri(song.albumArtUri)
+                .build()
+
+            MediaItem.Builder()
+                .setUri(song.uri)
+                .setMediaId(song.uri)
+                .setMediaMetadata(metadata)
+                .build()
+        }
+        controller.setMediaItems(mediaItems)
+        controller.prepare()
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -161,40 +208,52 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onSongTapped(song: Song) {
-        val songs = if (_isShuffleEnabled.value) {
-            val list = _librarySongs.value.toMutableList()
-            list.remove(song)
-            val shuffled = list.shuffled().toMutableList()
-            shuffled.add(0, song)
-            shuffled
+        val controller = mediaController ?: return
+        
+        val currentQueue = _queue.value
+        val indexInQueue = currentQueue.indexOf(song)
+        
+        if (indexInQueue != -1 && controller.mediaItemCount == currentQueue.size) {
+            controller.seekTo(indexInQueue, 0)
+            controller.play()
         } else {
-            _librarySongs.value
-        }
+            val songs = if (_isShuffleEnabled.value) {
+                val list = _librarySongs.value.toMutableList()
+                list.remove(song)
+                val shuffled = list.shuffled().toMutableList()
+                shuffled.add(0, song)
+                shuffled
+            } else {
+                _librarySongs.value
+            }
 
-        _queue.value = songs
-        val index = songs.indexOf(song)
-        playFromQueue(index)
+            _queue.value = songs
+            playFromQueue(songs.indexOf(song))
+        }
     }
 
     fun playFromQueue(index: Int) {
         val songs = _queue.value
         if (index !in songs.indices) return
+        val controller = mediaController ?: return
 
         val mediaItems = songs.map { song ->
             MediaItem.Builder()
                 .setUri(song.uri)
                 .setMediaId(song.uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .setArtworkUri(song.albumArtUri)
+                        .build()
+                )
                 .build()
         }
 
-        _isPlaying.value = true
-
-        mediaController?.apply {
-            setMediaItems(mediaItems, index, 0)
-            prepare()
-            playWhenReady = true 
-            play()
-        }
+        controller.setMediaItems(mediaItems, index, 0)
+        controller.prepare()
+        controller.play()
 
         _currentIndex.value = index
         _currentSong.value = songs[index]
@@ -202,9 +261,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePlayPause() {
         val controller = mediaController ?: return
-        val currentPlayState = _isPlaying.value
-        _isPlaying.value = !currentPlayState
-        if (currentPlayState) {
+        if (controller.isPlaying) {
             controller.pause()
         } else {
             controller.play()
@@ -216,19 +273,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun next() {
-        _isPlaying.value = true
-        mediaController?.apply {
-            playWhenReady = true 
-            seekToNext()
-        }
+        mediaController?.seekToNext()
     }
 
     fun previous() {
-        _isPlaying.value = true
-        mediaController?.apply {
-            playWhenReady = true 
-            seekToPrevious()
-        }
+        mediaController?.seekToPrevious()
     }
 
     fun shuffleAndPlay() {
@@ -239,18 +288,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val shuffledList = library.shuffled()
         _queue.value = shuffledList
         _isShuffleEnabled.value = true
-        _isPlaying.value = true
         
         val mediaItems = shuffledList.map { song ->
-            MediaItem.Builder().setUri(song.uri).setMediaId(song.uri).build()
+            MediaItem.Builder()
+                .setUri(song.uri)
+                .setMediaId(song.uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .build()
+                )
+                .build()
         }
         
-        controller.apply {
-            setMediaItems(mediaItems)
-            prepare()
-            playWhenReady = true 
-            play()
-        }
+        controller.setMediaItems(mediaItems)
+        controller.prepare()
+        controller.play()
         
         _currentIndex.value = 0
         _currentSong.value = shuffledList[0]
@@ -298,5 +352,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             controller.repeatMode = newMode
             _repeatMode.value = newMode
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaController?.release()
     }
 }
