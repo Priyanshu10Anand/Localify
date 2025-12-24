@@ -1,62 +1,85 @@
 # 🎵 Localify
 
-**Localify** is a premium, high-performance local music player built with modern Android standards. It focuses on a fluid, immersive user experience with a minimalist "glassmorphism" aesthetic.
+**Localify** is a premium, high-performance local music player for Android that blends a minimalist glassmorphism aesthetic with modern Android technologies. It prioritizes smooth animations, fast performance, and an immersive user experience powered by Media3, Jetpack Compose, and intelligent caching.
 
 ---
 
 ## ✨ Features
 
-- **🎨 Dynamic Theming**: The app UI automatically adapts its color palette to match the artwork of the currently playing song using the **Palette API**.
-- **🌫️ Immersive Glass UI**: A beautiful "frosted glass" interface with deep Gaussian blurs and real-time crossfading backgrounds.
-- **⚡ Performance Optimized**:
-    - **Room Database Cache**: Instant app startup and library loading.
-    - **Asynchronous Processing**: All MediaStore scans and bitmapping run on background IO threads to ensure 60fps UI performance.
-    - **Media3 (ExoPlayer)**: Robust, industry-standard audio engine for gapless playback.
-- **👆 Fluid Gestures**:
-    - **Swipe-to-Skip**: Toss the album art left or right to change tracks with physical scaling feedback.
-    - **Interactive Queue**: Smoothly slide up the queue from the bottom of the player.
-- **🔍 Smart Search**: Real-time song filtering with debounced logic for lag-free searching in large libraries.
-- **🔄 Modern Controls**: Morphing play/pause button that changes shape between a circle and a rounded square.
+- 🎨 **Dynamic Theming** — The UI automatically adapts its color palette to match the artwork of the currently playing song using the **Palette API**.
+- 🌫️ **Immersive Glass UI** — A beautiful "frosted glass" interface with deep Gaussian blurs and real-time crossfading backgrounds.
+- ⚡ **High Performance**
+  - **Room Database Cache**: Instant app startup and library loading by caching MediaStore results.
+  - **Asynchronous Processing**: All scans and bitmapping run on background IO threads to ensure 60fps UI performance.
+  - **Media3 (ExoPlayer)**: Robust, industry-standard audio engine for gapless playback.
+- 👆 **Gesture-Driven Experience**
+  - **Swipe-to-Skip**: Toss the album art left or right to change tracks with physical scaling feedback.
+  - **Interactive Queue**: Smoothly slide up the queue from the bottom of the player.
+- 🔍 **Smart Search** — Real-time song filtering with debounced logic for lag-free searching in large libraries.
+- 🔄 **Modern Controls** — Morphing play/pause button that changes shape between a circle and a rounded square.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **UI**: Jetpack Compose (100%)
-- **Audio Engine**: Android Media3 (ExoPlayer & MediaSession)
-- **Database**: Room (Local Cache)
-- **Image Loading**: Coil
-- **Theming**: Android Palette API
-- **Concurrency**: Kotlin Coroutines & Flow
-- **Architecture**: MVVM (Model-View-ViewModel)
+| Component        | Technology                        |
+| ---------------- | --------------------------------- |
+| **UI**           | Jetpack Compose                   |
+| **Audio Engine** | Media3 (ExoPlayer + MediaSession) |
+| **Database**     | Room (Local Cache)                |
+| **Images**       | Coil                              |
+| **Theming**      | Palette API                       |
+| **Concurrency**  | Coroutines + Flow                 |
+| **Architecture** | MVVM (Model-View-ViewModel)       |
 
 ---
 
 ## 📸 Screenshots
 
-| Home Library | Now Playing | Interactive Queue |
-| :---: | :---: | :---: |
-| _Coming Soon_ | _Coming Soon_ | _Coming Soon_ |
+|             Home Library             |                 Now Playing                 |        Interactive Queue        |
+| :----------------------------------: | :-----------------------------------------: | :-----------------------------: |
+| ![Library](screenshots\home-tab.jpg) | ![Now Playing](screenshots\now-playing.jpg) | ![Queue](screenshots\queue.jpg) |
 
 ---
 
 ## 🚀 Getting Started
 
-1. **Clone the repository**:
+### Prerequisites
+
+- Android Studio (Ladybug or newer)
+- Android SDK 29+
+
+### Installation
+
+1. **Clone the repository:**
+
    ```bash
-   git clone https://github.com/yourusername/localify.git
+   git clone https://github.com/Priyanshu10Anand/localify.git
+   cd localify
    ```
-2. **Open in Android Studio**:
-   Make sure you have the latest Arctic Fox or newer.
-3. **Run**:
-   Ensure you grant the "Music & Audio" permission on your device to see your local files.
+
+2. **Open in Android Studio:**
+
+   - Launch Android Studio and select "Open an existing project"
+   - Navigate to the cloned directory and open it
+
+3. **Run the app:**
+   - Connect your device or use an emulator
+   - Click the "Run" button or press `Shift + F10`
+   - Grant **Music & Audio** permissions when prompted to see your local files.
 
 ---
 
-## 📄 License
+## 📋 Permissions
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+The app requires the following permissions to function:
+
+- `READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE` — To access your music library.
+- `FOREGROUND_SERVICE` — To keep music playing when the app is in the background.
+- `POST_NOTIFICATIONS` — To show playback controls in the notification bar.
 
 ---
 
-Developed with ❤️ by **Priyanshu**
+<div align = 'center'>
+  <p>Developed with ❤️ by <strong>Priyanshu</strong></p>
+</div>
