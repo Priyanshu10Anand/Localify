@@ -21,7 +21,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true // ✅ Enables code shrinking, obfuscation, and optimization
+            isShrinkResources = true // ✅ Removes unused resources
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -59,24 +60,16 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     
-    // 🔊 Media playback (STABLE)
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-session:1.3.1")
 
-    // 🗄️ Room database (for playlists & library)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
-    // 🧠 ViewModel + StateFlow (already partly present, but safe)
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")
-
-    // 🔐 Runtime permissions (Compose-friendly)
     implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
-
     implementation("io.coil-kt:coil-compose:2.6.0")
-
-    // 🎨 Palette API for Dynamic Theming
     implementation("androidx.palette:palette-ktx:1.0.0")
 }

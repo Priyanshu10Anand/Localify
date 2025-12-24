@@ -66,6 +66,13 @@
    - Click the "Run" button or press `Shift + F10`
    - Grant **Music & Audio** permissions when prompted to see your local files.
 
+### 📦 Download APK
+You can download the latest stable version of Localify from the [Releases](https://github.com/Priyanshu10Anand/localify/releases) section of this repository.
+
+1. Go to the **Releases** tab on the right sidebar.
+2. Download the `Localify_v1.0.0.apk` (or latest version) file.
+3. Install it on your Android device (you may need to enable "Install from Unknown Sources").
+
 ---
 
 ## 📋 Permissions
