@@ -171,14 +171,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
-                delay(500)
+                delay(200) // ✅ Faster updates for smoother UI (was 500)
             }
         }
     }
 
     fun loadSongs() {
         viewModelScope.launch {
-            // This now triggers the background sync
             repository.refreshLibrary()
         }
     }

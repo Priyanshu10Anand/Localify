@@ -1,6 +1,9 @@
 package com.priyanshu.localplayer.ui.components
 
 import android.net.Uri
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -45,15 +48,36 @@ fun NowPlayingPolished(
     onRepeat: () -> Unit,
     onQueue: () -> Unit
 ) {
-    var sliderPosition by remember { mutableStateOf<Float?>(null) }
-    val displayPosition = sliderPosition?.toLong() ?: position
+    // 🎨 Smooth Slider Logic
+    var isDragging by remember { mutableStateOf(false) }
+    var dragPosition by remember { mutableStateOf(0f) }
+    
+    // We use Animatable to interpolate between position updates for buttery smoothness
+    val animatedPosition = remember { Animatable(position.toFloat()) }
+
+    // Sync animation with player position when not dragging
+    LaunchedEffect(position, isPlaying, isDragging) {
+        if (!isDragging) {
+            if (isPlaying) {
+                // Animate to the next expected position (approx +200ms) over 200ms
+                animatedPosition.animateTo(
+                    targetValue = position.toFloat(),
+                    animationSpec = tween(durationMillis = 200, easing = LinearEasing)
+                )
+            } else {
+                animatedPosition.snapTo(position.toFloat())
+            }
+        }
+    }
+
+    val displayPosition = if (isDragging) dragPosition else animatedPosition.value
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0F0F0F))
             .padding(horizontal = 24.dp)
-            .verticalScroll(rememberScrollState()), // ✅ Prevent clipping on smaller screens
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(16.dp))
@@ -64,7 +88,7 @@ fun NowPlayingPolished(
             contentDescription = null,
             modifier = Modifier
                 .aspectRatio(1f)
-                .fillMaxWidth(0.85f) // ✅ Slightly smaller to save vertical space
+                .fillMaxWidth(0.85f)
                 .clip(RoundedCornerShape(24.dp)),
             contentScale = ContentScale.Crop
         )
@@ -80,7 +104,7 @@ fun NowPlayingPolished(
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 22.sp, // ✅ Slightly smaller
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -105,19 +129,22 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ⏱️ PROGRESS BAR
+        // ⏱️ PROGRESS BAR (Now Smooth)
         Slider(
-            value = displayPosition.toFloat(),
-            onValueChange = { sliderPosition = it },
+            value = displayPosition.coerceIn(0f, if (duration > 0) duration.toFloat() else 1f),
+            onValueChange = { 
+                isDragging = true
+                dragPosition = it 
+            },
             onValueChangeFinished = {
-                sliderPosition?.let { onSeek(it.toLong()) }
-                sliderPosition = null
+                onSeek(dragPosition.toLong())
+                isDragging = false
             },
             valueRange = 0f..(if (duration > 0) duration.toFloat() else 1f),
             colors = SliderDefaults.colors(
-                thumbColor = Color(0xFF5E67A2),
-                activeTrackColor = Color(0xFF5E67A2),
-                inactiveTrackColor = Color.DarkGray
+                thumbColor = Color.White,
+                activeTrackColor = Color.White,
+                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
             ),
             modifier = Modifier.fillMaxWidth()
         )
@@ -126,7 +153,7 @@ fun NowPlayingPolished(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = formatTime(displayPosition), color = Color.Gray, fontSize = 12.sp)
+            Text(text = formatTime(displayPosition.toLong()), color = Color.Gray, fontSize = 12.sp)
             Text(text = formatTime(duration), color = Color.Gray, fontSize = 12.sp)
         }
 
@@ -142,7 +169,7 @@ fun NowPlayingPolished(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = null,
-                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF5E67A2) else Color.White,
+                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) Color(0xFF1DB954) else Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -158,16 +185,16 @@ fun NowPlayingPolished(
 
             Surface(
                 modifier = Modifier
-                    .size(75.dp) // ✅ Reduced size
+                    .size(75.dp)
                     .clickable { onPlayPause() },
                 shape = CircleShape,
-                color = Color(0xFF5E67A2)
+                color = Color.White
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = Color.Black,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -186,13 +213,13 @@ fun NowPlayingPolished(
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = null,
-                    tint = if (isShuffleEnabled) Color(0xFF5E67A2) else Color.White,
+                    tint = if (isShuffleEnabled) Color(0xFF1DB954) else Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp)) // ✅ Tight spacing
+        Spacer(modifier = Modifier.height(24.dp))
 
         // 📜 QUEUE HANDLE
         Column(
@@ -218,6 +245,6 @@ fun NowPlayingPolished(
             )
         }
         
-        Spacer(modifier = Modifier.height(40.dp)) // ✅ Final padding at bottom
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
