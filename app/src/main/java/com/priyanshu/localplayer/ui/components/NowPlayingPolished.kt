@@ -3,6 +3,7 @@ package com.priyanshu.localplayer.ui.components
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,14 +53,11 @@ fun NowPlayingPolished(
     var isDragging by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableStateOf(0f) }
     
-    // We use Animatable to interpolate between position updates for buttery smoothness
     val animatedPosition = remember { Animatable(position.toFloat()) }
 
-    // Sync animation with player position when not dragging
     LaunchedEffect(position, isPlaying, isDragging) {
         if (!isDragging) {
             if (isPlaying) {
-                // Animate to the next expected position (approx +200ms) over 200ms
                 animatedPosition.animateTo(
                     targetValue = position.toFloat(),
                     animationSpec = tween(durationMillis = 200, easing = LinearEasing)
@@ -71,6 +69,13 @@ fun NowPlayingPolished(
     }
 
     val displayPosition = if (isDragging) dragPosition else animatedPosition.value
+
+    // ✨ Play/Pause Button Animation Logic
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isPlaying) 16.dp else 37.5.dp, 
+        animationSpec = tween(durationMillis = 400),
+        label = "play_pause_shape"
+    )
 
     Column(
         modifier = Modifier
@@ -129,7 +134,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ⏱️ PROGRESS BAR (Now Smooth)
+        // ⏱️ PROGRESS BAR
         Slider(
             value = displayPosition.coerceIn(0f, if (duration > 0) duration.toFloat() else 1f),
             onValueChange = { 
@@ -183,11 +188,13 @@ fun NowPlayingPolished(
                 )
             }
 
+            // Fixed the ugly square outline by using Surface's onClick and clipping
             Surface(
+                onClick = onPlayPause, // ✅ Use Surface's onClick for shape-aware ripple
                 modifier = Modifier
                     .size(75.dp)
-                    .clickable { onPlayPause() },
-                shape = CircleShape,
+                    .clip(RoundedCornerShape(cornerRadius)), // ✅ Clip the modifier to match shape
+                shape = RoundedCornerShape(cornerRadius), 
                 color = Color.White
             ) {
                 Box(contentAlignment = Alignment.Center) {
