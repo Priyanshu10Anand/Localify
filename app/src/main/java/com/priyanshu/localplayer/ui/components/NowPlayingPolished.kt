@@ -84,7 +84,6 @@ fun NowPlayingPolished(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F0F0F))
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -104,7 +103,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ℹ️ SONG INFO - REMOVED MOREVERT ICON
+        // ℹ️ SONG INFO
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -216,8 +215,6 @@ fun NowPlayingPolished(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        
-        // Removed Queue handle from here as it's handled by BottomSheetScaffold peek
     }
 }
 

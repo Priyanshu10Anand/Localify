@@ -5,11 +5,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,6 +89,17 @@ class MainActivity : ComponentActivity() {
                     val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
                     val repeatMode by viewModel.repeatMode.collectAsState()
 
+                    var lastNonNullSong by remember { mutableStateOf<Song?>(null) }
+                    LaunchedEffect(currentSong) {
+                        if (currentSong != null) {
+                            lastNonNullSong = currentSong
+                        }
+                    }
+
+                    BackHandler(enabled = showNowPlaying) {
+                        showNowPlaying = false
+                    }
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         
                         // 🖼️ Thumbnail Grid
@@ -113,7 +126,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // 🧊 FLOATING TOP BUTTONS & HEADER GRADIENT
+                        // 🧊 Header Gradient and Search (UI code remains same)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -142,11 +155,7 @@ class MainActivity : ComponentActivity() {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                AnimatedVisibility(
-                                    visible = !isSearchActive,
-                                    enter = fadeIn(),
-                                    exit = fadeOut()
-                                ) {
+                                AnimatedVisibility(visible = !isSearchActive) {
                                     GlassButton(text = "Localify")
                                 }
 
@@ -275,21 +284,28 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    }
 
-                    if (showNowPlaying && currentSong != null) {
-                        InteractivePlayerDialog(
-                            song = currentSong!!,
-                            position = position,
-                            duration = duration,
-                            isPlaying = isPlaying,
-                            isShuffleEnabled = isShuffleEnabled,
-                            repeatMode = repeatMode,
-                            queue = queue,
-                            currentIndex = currentIndex,
-                            viewModel = viewModel,
-                            onDismiss = { showNowPlaying = false }
-                        )
+                        // ✅ FIXED: Interactive Player is now part of the Box stack with AnimatedVisibility
+                        // This prevents it from being dismissed/recreated during song transitions
+                        AnimatedVisibility(
+                            visible = showNowPlaying && lastNonNullSong != null,
+                            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            InteractivePlayerDialog(
+                                song = currentSong ?: lastNonNullSong!!,
+                                position = position,
+                                duration = duration,
+                                isPlaying = isPlaying,
+                                isShuffleEnabled = isShuffleEnabled,
+                                repeatMode = repeatMode,
+                                queue = queue,
+                                currentIndex = currentIndex,
+                                viewModel = viewModel,
+                                onDismiss = { showNowPlaying = false }
+                            )
+                        }
                     }
                 }
             }
@@ -337,7 +353,7 @@ fun InteractivePlayerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(1f) // Ensures it can slide up to full screen
+                    .fillMaxHeight(1f)
                     .background(Color(0xFF121212))
             ) {
                 Text(
@@ -381,8 +397,8 @@ fun InteractivePlayerDialog(
                 }
             }
         },
-        sheetPeekHeight = 60.dp, // Reduced peek height to move it further down
-        sheetContainerColor = Color(0xFF121212),
+        sheetPeekHeight = 60.dp,
+        sheetContainerColor = Color(0xFF121212).copy(alpha = 0.95f),
         sheetDragHandle = {
             Column(
                 modifier = Modifier
@@ -395,7 +411,7 @@ fun InteractivePlayerDialog(
                         .width(40.dp)
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color.Gray.copy(alpha = 0.5f))
+                        .background(Color.White.copy(alpha = 0.5f))
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -406,9 +422,26 @@ fun InteractivePlayerDialog(
                 )
             }
         },
-        containerColor = Color.Black
+        containerColor = Color.Transparent
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Crossfade(targetState = song.albumArtUri, animationSpec = tween(700)) { artUri ->
+                AsyncImage(
+                    model = artUri,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(60.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+            )
+
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
                     modifier = Modifier
@@ -425,9 +458,7 @@ fun InteractivePlayerDialog(
                         Text("Now playing", color = Color.Gray, fontSize = 12.sp)
                         Text("Localify Library", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White)
-                    }
+                    Spacer(Modifier.width(48.dp))
                 }
 
                 NowPlayingPolished(
