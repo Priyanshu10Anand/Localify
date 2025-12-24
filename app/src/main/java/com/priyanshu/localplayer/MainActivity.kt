@@ -342,13 +342,12 @@ fun InteractivePlayerDialog(
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetPeekHeight = 80.dp,
-        sheetDragHandle = null, // ✅ Using custom handle inside sheetContent
+        sheetPeekHeight = 45.dp, // ✅ Deeply tucked to hide song glimpses
+        sheetDragHandle = null,
         sheetContainerColor = Color.Transparent,
         containerColor = Color.Transparent,
         sheetContent = {
             Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(1f)) {
-                // 🖼️ Immersive Blur Background
                 AsyncImage(
                     model = song.albumArtUri,
                     contentDescription = null,
@@ -358,11 +357,10 @@ fun InteractivePlayerDialog(
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)))
 
                 Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-                    // 🎛️ Custom Integrated Handle
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp),
+                            .padding(top = 16.dp, bottom = 8.dp), // ✅ Tighter padding
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
@@ -371,16 +369,8 @@ fun InteractivePlayerDialog(
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(Color.White.copy(alpha = 0.4f))
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Queue",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
                     }
                     
-                    // 📜 Fuller, Closer List
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 32.dp)
