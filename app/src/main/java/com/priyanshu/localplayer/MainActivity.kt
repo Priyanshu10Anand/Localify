@@ -102,7 +102,6 @@ class MainActivity : ComponentActivity() {
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         
-                        // 🖼️ Thumbnail Grid
                         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(3),
@@ -126,7 +125,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // 🧊 Header Gradient and Search (UI code remains same)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -179,7 +177,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // ⬛ BOTTOM GRADIENT OVERLAY
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -196,7 +193,6 @@ class MainActivity : ComponentActivity() {
                                 )
                         )
 
-                        // 🔀 Floating Shuffle Button
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -249,7 +245,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // 🎶 Floating Mini Player
                         AnimatedVisibility(
                             visible = currentSong != null,
                             enter = slideInVertically(initialOffsetY = { it }),
@@ -285,8 +280,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // ✅ FIXED: Interactive Player is now part of the Box stack with AnimatedVisibility
-                        // This prevents it from being dismissed/recreated during song transitions
                         AnimatedVisibility(
                             visible = showNowPlaying && lastNonNullSong != null,
                             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -349,80 +342,89 @@ fun InteractivePlayerDialog(
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
+        sheetPeekHeight = 80.dp,
+        sheetDragHandle = null, // ✅ Using custom handle inside sheetContent
+        sheetContainerColor = Color.Transparent,
+        containerColor = Color.Transparent,
         sheetContent = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(1f)
-                    .background(Color(0xFF121212))
-            ) {
-                Text(
-                    text = "Up Next",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(16.dp)
+            Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(1f)) {
+                // 🖼️ Immersive Blur Background
+                AsyncImage(
+                    model = song.albumArtUri,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().blur(80.dp),
+                    contentScale = ContentScale.Crop
                 )
-                
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    itemsIndexed(queue) { index, song ->
-                        val isCurrent = index == currentIndex
-                        Row(
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)))
+
+                Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                    // 🎛️ Custom Integrated Handle
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.playFromQueue(index) }
-                                .background(if (isCurrent) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AsyncImage(
-                                model = song.albumArtUri,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    song.title,
-                                    color = if (isCurrent) Color(0xFF1DB954) else Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
+                                .width(36.dp).height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.4f))
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Queue",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    // 📜 Fuller, Closer List
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
+                        itemsIndexed(queue) { index, queueSong ->
+                            val isCurrent = index == currentIndex
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { viewModel.playFromQueue(index) }
+                                    .background(if (isCurrent) Color.White.copy(alpha = 0.15f) else Color.Transparent)
+                                    .padding(horizontal = 20.dp, vertical = 4.dp), 
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = queueSong.albumArtUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)), 
+                                    contentScale = ContentScale.Crop
                                 )
-                                Text(song.artist, color = Color.Gray, fontSize = 12.sp, maxLines = 1)
+                                Spacer(Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        queueSong.title,
+                                        color = if (isCurrent) Color(0xFF1DB954) else Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        queueSong.artist, 
+                                        color = Color.LightGray, 
+                                        fontSize = 13.sp, 
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        },
-        sheetPeekHeight = 60.dp,
-        sheetContainerColor = Color(0xFF121212).copy(alpha = 0.95f),
-        sheetDragHandle = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.5f))
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Queue",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        },
-        containerColor = Color.Transparent
+        }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Crossfade(targetState = song.albumArtUri, animationSpec = tween(700)) { artUri ->
@@ -436,11 +438,7 @@ fun InteractivePlayerDialog(
                 )
             }
             
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.65f))
-            )
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)))
 
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
@@ -477,9 +475,7 @@ fun InteractivePlayerDialog(
                     onPrev = { viewModel.previous() },
                     onShuffle = { viewModel.toggleShuffle() },
                     onRepeat = { viewModel.toggleRepeatMode() },
-                    onQueue = { 
-                        scope.launch { scaffoldState.bottomSheetState.expand() }
-                    }
+                    onQueue = { scope.launch { scaffoldState.bottomSheetState.expand() } }
                 )
             }
         }
