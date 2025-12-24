@@ -23,7 +23,7 @@
 ## 🛠️ Tech Stack
 
 | Component        | Technology                        |
-| ---------------- | --------------------------------- |
+|------------------|-----------------------------------|
 | **UI**           | Jetpack Compose                   |
 | **Audio Engine** | Media3 (ExoPlayer + MediaSession) |
 | **Database**     | Room (Local Cache)                |
@@ -37,8 +37,8 @@
 ## 📸 Screenshots
 
 |             Home Library             |                 Now Playing                 |        Interactive Queue        |
-| :----------------------------------: | :-----------------------------------------: | :-----------------------------: |
-| ![Library](screenshots\home-tab.jpg) | ![Now Playing](screenshots\now-playing.jpg) | ![Queue](screenshots\queue.jpg) |
+|:------------------------------------:|:-------------------------------------------:|:-------------------------------:|
+| ![Library](screenshots/home-tab.jpg) | ![Now Playing](screenshots/now-playing.jpg) | ![Queue](screenshots/queue.jpg) |
 
 ---
 
@@ -52,14 +52,12 @@
 ### Installation
 
 1. **Clone the repository:**
-
    ```bash
    git clone https://github.com/Priyanshu10Anand/localify.git
    cd localify
    ```
 
 2. **Open in Android Studio:**
-
    - Launch Android Studio and select "Open an existing project"
    - Navigate to the cloned directory and open it
 
@@ -73,13 +71,12 @@
 ## 📋 Permissions
 
 The app requires the following permissions to function:
-
 - `READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE` — To access your music library.
 - `FOREGROUND_SERVICE` — To keep music playing when the app is in the background.
 - `POST_NOTIFICATIONS` — To show playback controls in the notification bar.
 
 ---
 
-<div align = 'center'>
+<div align="center">
   <p>Developed with ❤️ by <strong>Priyanshu</strong></p>
 </div>
