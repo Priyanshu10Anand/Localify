@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // 🎨 Dynamic Theming Logic
+                    // Dynamic Theming Logic
                     val context = LocalContext.current
                     var dominantColor by remember { mutableStateOf(Color(0xFF1DB954)) } // Default green
 

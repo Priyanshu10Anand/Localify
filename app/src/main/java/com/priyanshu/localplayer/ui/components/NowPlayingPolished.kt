@@ -40,7 +40,7 @@ import kotlin.math.abs
 
 @Composable
 fun NowPlayingPolished(
-    songId: Long, // ✅ Added for unique transition tracking
+    songId: Long,
     title: String,
     artist: String,
     album: String,
@@ -59,7 +59,7 @@ fun NowPlayingPolished(
     onRepeat: () -> Unit,
     onQueue: () -> Unit
 ) {
-    // 🎨 Smooth Slider Logic
+    // Smooth Slider Logic
     var isDraggingSlider by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableStateOf(0f) }
     
@@ -80,7 +80,7 @@ fun NowPlayingPolished(
 
     val displayPosition = if (isDraggingSlider) dragPosition else animatedPosition.value
 
-    // ✨ Play/Pause Button Animation Logic
+    // Play/Pause Button Animation Logic
     val cornerRadius by animateDpAsState(
         targetValue = if (isPlaying) 16.dp else 37.5.dp, 
         animationSpec = tween(durationMillis = 400),
@@ -96,22 +96,21 @@ fun NowPlayingPolished(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🖼️ ALBUM ART - Now with clean transitions and matching width
+        // ALBUM ART - Now with clean transitions and matching width
         AnimatedContent(
-            targetState = songId, // ✅ Transition per unique song
+            targetState = songId,
             transitionSpec = {
                 (scaleIn(initialScale = 0.85f, animationSpec = tween(500, easing = FastOutSlowInEasing)) + fadeIn(tween(400)))
                     .togetherWith(scaleOut(targetScale = 0.85f, animationSpec = tween(500, easing = FastOutSlowInEasing)) + fadeOut(tween(400)))
             },
             label = "album_art_transition"
         ) { targetId ->
-            // Gesture state is now isolated to the specific song instance
             val offsetX = remember { Animatable(0f) }
             val scope = rememberCoroutineScope()
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth() // ✅ Width now matches the progress bar (Slider)
+                    .fillMaxWidth()
                     .aspectRatio(1f)
                     .graphicsLayer {
                         translationX = offsetX.value
@@ -160,7 +159,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ℹ️ SONG INFO
+        // SONG INFO
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -186,7 +185,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ⏱️ PROGRESS BAR
+        // PROGRESS BAR
         Slider(
             value = displayPosition.coerceIn(0f, if (duration > 0) duration.toFloat() else 1f),
             onValueChange = { 
@@ -216,7 +215,7 @@ fun NowPlayingPolished(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🎮 CONTROLS
+        // CONTROLS
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

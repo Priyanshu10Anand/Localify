@@ -27,7 +27,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _librarySongs = MutableStateFlow<List<Song>>(emptyList())
     val librarySongs: StateFlow<List<Song>> = _librarySongs
 
-    // 🔍 Search Logic with Debounce
+    // Search Logic with Debounce
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
@@ -211,7 +211,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val controller = mediaController ?: return
         val currentTime = System.currentTimeMillis()
         
-        // Add a 300ms cooldown to prevent glitches from rapid tapping
+        // 300ms cooldown to prevent glitches from rapid tapping
         if (currentTime - lastActionTime < 300) return
         lastActionTime = currentTime
 
