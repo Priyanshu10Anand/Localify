@@ -1,6 +1,6 @@
 # 🎵 Localify
 
-**Localify** is a premium, high-performance local music player for Android that blends a minimalist glassmorphism aesthetic with modern Android technologies. It prioritizes smooth animations, fast performance, and an immersive user experience powered by Media3, Jetpack Compose, and intelligent caching.
+**Localify** is a premium, high-performance local music player for Android that blends a minimalist glassmorphism aesthetic with modern Android technologies. It prioritizes smooth animations, fast performance, and an immersive user experience powered by Media3, Jetpack Compose and intelligent caching.
 
 ---
 
